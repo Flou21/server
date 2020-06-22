@@ -1,0 +1,102 @@
+version: '3'
+networks:
+  gitea:
+    external: false
+
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./ssl:/etc/nginx/certs
+    restart: unless-stopped
+
+  searx:
+    image: wonderfall/searx
+    environment:
+      - VIRTUAL_HOST=searx.flou21.de
+    restart: unless-stopped
+
+  db:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    networks:
+      - gitea
+    environment:
+      MYSQL_ROOT_PASSWORD: password 
+      MYSQL_USER: flo
+      MYSQL_PASSWORD: Florian21
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=adminer.flou21.de
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=grafana.flou21.de
+
+  cadvisor:
+    image: gcr.io/google-containers/cadvisor:latest
+    container_name: cadvisor
+    environment:
+      - VIRTUAL_HOST=cadvisor.flou21.de
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+
+  nextcloud:
+    image: nextcloud:latest
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=nextcloud.flou21.de
+
+  wordpress:
+    image: wordpress
+    links:
+     - mariadb:mysql
+    environment:
+     - WORDPRESS_DB_PASSWORD=password
+     - VIRTUAL_HOST=website.flou21.de
+    volumes:
+     - ./html:/var/www/html
+  mariadb:
+    image: mariadb
+    environment:
+     - MYSQL_ROOT_PASSWORD=password
+     - MYSQL_DATABASE=wordpress
+    volumes:
+     - ./database:/var/lib/mysql
+
+  gitea:
+    image: gitea/gitea:latest
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - DB_TYPE=mysql
+      - DB_HOST=mysql.flou21.de:3306
+      - DB_NAME=gitea
+      - DB_USER=gitea
+      - DB_PASSWD=gitea
+      - VIRTUAL_HOST=gitea.flou21.de
+    restart: always
+    ports:
+      - "3000:3000"
+      - "222:22"
+    networks:
+      - gitea
+    volumes:
+      - ./gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
